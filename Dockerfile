@@ -9,7 +9,7 @@ RUN npm ci --production
 
 COPY . .
 
-ENV PORT=3009
-EXPOSE 3009
+ENV PORT=3008
+EXPOSE 3008
 
 CMD ["node", "main.js"]

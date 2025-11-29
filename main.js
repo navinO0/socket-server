@@ -23,20 +23,20 @@ const urlPrefix = "/users";
             }
         }
 
-        // Start the server
-        await server.listen({ port: PORT, host: CONFIG.HOST })
-            .then((address) => {
-                console.log("Everything is Loaded..!");
-                console.log(
-                    "Swagger URL: " + address + urlPrefix + "swagger/public/documentation"
-                );
-                console.log(
-                    "Check server status URL: " + address + urlPrefix + "/public/status"
-                );
-            })
-            .catch((err) => {
-                throw new Error("Failed to start the server.", err);
-            });
+        // // Start the server
+        // await server.listen({ port: PORT, host: CONFIG.HOST })
+        //     .then((address) => {
+        //         console.log("Everything is Loaded..!");
+        //         console.log(
+        //             "Swagger URL: " + address + urlPrefix + "swagger/public/documentation"
+        //         );
+        //         console.log(
+        //             "Check server status URL: " + address + urlPrefix + "/public/status"
+        //         );
+        //     })
+        //     .catch((err) => {
+        //         throw new Error("Failed to start the server.", err);
+        //     });
 
     } catch (err) {
         console.error('Error occurred:', err); 
