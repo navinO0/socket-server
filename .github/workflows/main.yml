@@ -8,7 +8,7 @@ on:
 jobs:
   trigger-jenkins:
     runs-on: ubuntu-latest
-    environment: trigger-jenkins    # <- REQUIRED to access environment secrets
+    environment: trigger-jenkins    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
           JENKINS_URL: ${{ secrets.JENKINS_URL }}
           JENKINS_USER: ${{ secrets.JENKINS_USER }}
           JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
-          JENKINS_JOB: ${{ secrets.JENKINS_JOB }}        # <- you have this secret
+          JENKINS_JOB: ${{ secrets.JENKINS_JOB }}        
           JENKINS_SKIP_TLS_VERIFY: ${{ secrets.JENKINS_SKIP_TLS_VERIFY }}
         run: |
           set -euo pipefail
@@ -57,7 +57,7 @@ jobs:
           else
             echo "No crumb (proceeding without crumb header)."
           fi
-          # Ensure JENKINS_JOB is proper path (example: job/MyJob or job/Folder/job/MyJob)
+     
           TRIGGER_URL="${JENKINS_URL}/${JENKINS_JOB}/build"
           echo "Triggering: ${TRIGGER_URL}"
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $TLS_OPT -X POST \
