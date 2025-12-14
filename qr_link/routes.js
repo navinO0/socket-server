@@ -1,8 +1,8 @@
 'use strict';
 
-const loginRoutes = require('./index');
 const { Server } = require("socket.io");
 const { setCacheValue, deleteCacheValue } = require('../core/redis_config/redis_client');
+const userManagementRoutes = require('../user-management/routes/authRoutes');
 
 module.exports = async (app) => {
     const io = new Server(app.server, { cors: { origin: "*" } });
@@ -27,5 +27,6 @@ module.exports = async (app) => {
         socket.on("disconnect", () => console.log("User disconnected"));
     });
 
-    app.register(loginRoutes, { prefix: '/user' });
+    // Register user management routes from submodule
+    app.register(userManagementRoutes, { prefix: '/user' });
 };
