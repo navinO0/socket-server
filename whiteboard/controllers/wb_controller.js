@@ -1,31 +1,31 @@
 'use strict'
 
 const { replyError, replySuccess } = require('../../core/core_funcs');
-const {  getCacheValue } = require('../../core/redis_config/redis_client');
-const { getUserSuggestions, create_room, getRoomChatData, join_room, getRoom } = require('../services/wb_service');
+const {  getCacheValue, getCacheList } = require('../../core/redis_config/redis_client');
+const { getUserSuggestions, create_room, getRoomChatData, join_room, getRoom, getRoomStrokes } = require('../services/wb_service');
 
 
 
 async function GET_ROOM_ID(request, reply) {
     try {
         const room_id = request.params.roomId
-        const messages = await getCacheValue(`${this.CONFIG.REDIS.MESSAGES_KEY}${room_id}`);
+        const messages = await getCacheList(`${this.CONFIG.REDIS.MESSAGES_KEY}${room_id}`);
         const strokes = await getCacheValue(`${this.CONFIG.REDIS.STROKES_KEY}${room_id}`)
+        const dbStrokesJson = await getRoomStrokes(this, room_id);
+        
         const msgsFromDb = await getRoomChatData(this, room_id)
-        console.log(msgsFromDb)
+        
+        let redisStrokes = strokes?.length ? JSON.parse(strokes) : [];
+        let dbStrokes = dbStrokesJson ?dbStrokesJson : [];
+        
+        if (!Array.isArray(redisStrokes)) redisStrokes = [];
+        if (!Array.isArray(dbStrokes)) dbStrokes = [];
+        
+        const mergedStrokes = [...dbStrokes, ...redisStrokes];
+
         return replySuccess(reply, {
-            messages: (() => {
-              if (messages?.length) {
-                if (msgsFromDb?.length) {
-                  return [...msgsFromDb, ...JSON.parse(messages)];
-                } else {
-                  return JSON.parse(messages);
-                }
-              } else {
-                return msgsFromDb?.length ? msgsFromDb : [];
-              }
-            })(),
-            drowData: strokes?.length ? JSON.parse(strokes) : []
+            messages: msgsFromDb?.length ? [...msgsFromDb, ...(messages || [])] : (messages || []),
+            drowData: mergedStrokes
           });
     } catch (err) {
         return replyError(reply, err)

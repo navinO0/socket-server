@@ -1,5 +1,5 @@
 const { append } = require("ramda");
-const { logger } = require("../../server");
+const { logger } = require("../logger/logger");
 
 function generateUniqueCode() {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; 

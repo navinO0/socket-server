@@ -1,6 +1,14 @@
 const { GET_ROOM_ID, SAVE_ROOM_ID, GET_USER_SUGGESTION, CREATE_ROOM, JOIN_ROOM } = require('./controllers/wb_controller');
 const { room_id_schema, save_room_schema, getUsersSchema, create_room_schema, join_room_schema } = require('./schemas/wb_schema');
-// const fastifyWebsocket = require('fastify-websocket');
+const {
+    drawEventSchema,
+    joinRoomSchema,
+    messageEventSchema,
+    cursorMoveSchema,
+    clearEventSchema,
+    undoRedoSchema,
+    lockEventSchema
+} = require('./schemas/socket_events_schema');
 
 module.exports = async (app) => {
 
@@ -31,5 +39,102 @@ app.route({
         url: '/room/join',
         schema: join_room_schema,
         handler: JOIN_ROOM,
+    });
+
+    // Socket.IO Event Documentation (for Swagger reference)
+    app.route({
+        method: 'POST',
+        url: '/socket/draw',
+        schema: drawEventSchema,
+        handler: async (request, reply) => {
+            reply.send({
+                message: 'This is a Socket.IO event. Use: socket.emit("draw", {roomId, userId, paths})',
+                documentation: true
+            });
+        }
+    });
+
+    app.route({
+        method: 'POST',
+        url: '/socket/join-room',
+        schema: joinRoomSchema,
+        handler: async (request, reply) => {
+            reply.send({
+                message: 'This is a Socket.IO event. Use: socket.emit("join-room", roomId)',
+                documentation: true
+            });
+        }
+    });
+
+    app.route({
+        method: 'POST',
+        url: '/socket/message',
+        schema: messageEventSchema,
+        handler: async (request, reply) => {
+            reply.send({
+                message: 'This is a Socket.IO event. Use: socket.emit("message", {id, room_id, sender_username, content, sent_at})',
+                documentation: true
+            });
+        }
+    });
+
+    app.route({
+        method: 'POST',
+        url: '/socket/cursor-move',
+        schema: cursorMoveSchema,
+        handler: async (request, reply) => {
+            reply.send({
+                message: 'This is a Socket.IO event. Use: socket.emit("cursor-move", {roomId, userId, cursor})',
+                documentation: true
+            });
+        }
+    });
+
+    app.route({
+        method: 'POST',
+        url: '/socket/clear',
+        schema: clearEventSchema,
+        handler: async (request, reply) => {
+            reply.send({
+                message: 'This is a Socket.IO event. Use: socket.emit("clear", roomId)',
+                documentation: true
+            });
+        }
+    });
+
+    app.route({
+        method: 'POST',
+        url: '/socket/undo',
+        schema: undoRedoSchema,
+        handler: async (request, reply) => {
+            reply.send({
+                message: 'This is a Socket.IO event. Use: socket.emit("undo", roomId)',
+                documentation: true
+            });
+        }
+    });
+
+    app.route({
+        method: 'POST',
+        url: '/socket/redo',
+        schema: undoRedoSchema,
+        handler: async (request, reply) => {
+            reply.send({
+                message: 'This is a Socket.IO event. Use: socket.emit("redo", roomId)',
+                documentation: true
+            });
+        }
+    });
+
+    app.route({
+        method: 'POST',
+        url: '/socket/lock',
+        schema: lockEventSchema,
+        handler: async (request, reply) => {
+            reply.send({
+                message: 'This is a Socket.IO event. Use: socket.emit("lock", {roomId, userId}) or socket.emit("unlock", roomId)',
+                documentation: true
+            });
+        }
     });
 };

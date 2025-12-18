@@ -4,8 +4,7 @@ const fs = require('fs');
 const path = require('path');
 require('make-promises-safe');
 const fastify = require('fastify');
-const { createServer } = require('http'); // Import HTTP server
-const { Server } = require('socket.io'); // Import Socket.io
+
 const helmet = require('@fastify/helmet');
 const swagger = require('@fastify/swagger');
 const swaggerUi = require('@fastify/swagger-ui');
@@ -13,12 +12,13 @@ const os = require('os');
 const { ajvCompiler } = require('./qr_link/schemas/qr_schema');
 const { v4: uuid } = require('uuid');
 const { knexClientCreate } = require('./core/knex_query_builder');
-const { validateAccessToken } = require('./core/token_generate_validate');
+const { validateAccessToken } = require('./user-management-services/utils/tokenGenerator');
+const { initializeRedis } = require('./user-management-services/utils/redisClient');
 const CONFIG = require('./core/config');
 const { redisClientCreate } = require('./core/redis_config');
 const fastifyCors = require("@fastify/cors");
 const cronPlugin = require('./core/scheduler/scheduler');
-const setupSocket = require('./whiteboard/socket');
+
 const { logger } = require('./core/logger/logger')
 
 
@@ -89,28 +89,27 @@ async function serverSetup(swaggerURL) {
             }, 'Response Sent');
         });
 
-        // Redis & Database Setup
         await redisClientCreate(app, CONFIG.REDIS, 'redis');
         await knexClientCreate(app, CONFIG.APP_DB_CONFIG, 'knex');
+        await initializeRedis(app.redis);
 
-        const httpServer = createServer(app.server);
-        const io = new Server(httpServer, { cors: { origin: "*" } });
-        app.decorate('io', io);
-        setupSocket(io, app.log);
-
+        app.register(require('./user-management-services/routes/authRoutes'), { prefix: '/user' });
         app.addHook('onRequest', async (request, reply) => {
-            return await validateAccessToken({ request }, reply, app);
+            const authConfig = {
+                JWT_SECRET: CONFIG.SECURITY_KEYS.JWT_SECRET,
+                DEVICES_KEY: CONFIG.REDIS.DEVICES_KEY
+            };
+            return await validateAccessToken(request, reply, app, authConfig);
         });
 
         await app.register(cronPlugin);
         app.register(require('./whiteboard/scheduler'));
-        
         await ajvCompiler(app, {});
-        app.httpServer = httpServer.listen(CONFIG.SOCKET_PORT, () => app.log.info(`Socket Server running on ${CONFIG.HOST}:${CONFIG.SOCKET_PORT}`));
-
+        
         return app;
     } catch (err) {
         logger.error(err, "Server setup error");
+        process.exit(1);
     }
 };
 
@@ -159,10 +158,25 @@ const swaggerConfig = (url) => {
 };
 
 process.on('uncaughtException', (err) => {
-    logger.error(err, "UNCAUGHT_EXCEPTION");
+    try {
+        logger.error(err, "UNCAUGHT_EXCEPTION");
+    } catch (e) {
+        console.error("Logger failed:", e);
+        console.error("UNCAUGHT_EXCEPTION:", err);
+    }
     setTimeout(() => {
         process.exit(1);
     })
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    try {
+        logger.error({ promise, reason }, "UNHANDLED_REJECTION");
+    } catch (e) {
+        console.error("Logger failed:", e);
+        console.error("UNHANDLED_REJECTION:", reason);
+    }
+    process.exit(1);
 });
 
 module.exports = { getAllRoutes, serverSetup, logger };

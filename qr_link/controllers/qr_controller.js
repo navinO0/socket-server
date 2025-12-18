@@ -1,10 +1,10 @@
 'use strict'
 
 const { generateUniqueCode, replyError, replySuccess } = require('../../core/core_funcs');
-const { decryptObject } = require('../../core/crypto');
-const { hashPassword, verifyPassword } = require('../../core/password_enc_desc');
-const { setCacheValue, deleteCacheValue, getCacheValue } = require('../../core/redis_config/redis_client');
-const { genereateToke, decodeToken } = require('../../core/token_generate_validate');
+const { setCacheValue, deleteCacheValue, getCacheValue } = require('../../user-management-services/utils/redisClient');
+const { generateToken, decodeToken } = require('../../user-management-services/utils/tokenGenerator');
+const { decryptObject } = require('../../user-management-services/utils/encryption');
+const { hashPassword, verifyPassword } = require('../../user-management-services/utils/passwordHash');
 const { createUser, getUserDetails, getUserImage } = require('../services/qr_service')
 const jwt = require('jsonwebtoken');
 
@@ -13,7 +13,8 @@ async function CREATE_USER(request, reply) {
         const body = request.body;
         // Decrypt the incoming request body
         const device_info = request.body.device_info
-        const { username, password, email, mobile, first_name, last_name, middle_name, profile_photo } = decryptObject(this, body,['username','email','mobile','first_name','middle_name', "password", 'last_name']);
+        
+        const { username, password, email, mobile, first_name, last_name, middle_name, profile_photo } = decryptObject(body,['username','email','mobile','first_name','middle_name', "password", 'last_name'], this.CONFIG);
         const user = await getUserDetails(this, username)
         if (user && user !== "") {
             throw new Error("username not available");
@@ -58,7 +59,7 @@ async function CREATE_USER(request, reply) {
         };
 
         const userCreateResponse = await createUser(this, userDetails);
-        const token = await genereateToke(this, userCreateResponse, device_info)
+        const token = await generateToken(this, userCreateResponse, device_info, this.CONFIG)
         return replySuccess(reply, { token });
     } catch (err) {
         return replyError(reply, { message: err.message });
@@ -70,7 +71,8 @@ async function LOGIN(request, reply) {
     try {
         const body = request.body;
         const {device_info} = request.body
-        const { username, password } = decryptObject(this, body,['username','password'])
+        
+        const { username, password } = decryptObject(body,['username','password'], this.CONFIG)
         const user = await getUserDetails(this, username)
         if (!user) {
             return replyError(reply, { message: 'Username or password is incorrect' })
@@ -80,7 +82,7 @@ async function LOGIN(request, reply) {
             return replyError(reply, { message: 'Username or password is incorrect' })
         }
         delete user.password
-        const token = await genereateToke(this, user, device_info)
+        const token = await generateToken(this, user, device_info, this.CONFIG)
         return replySuccess(reply, { token })
     } catch (err) {
         return replyError(reply, err)
@@ -106,7 +108,7 @@ async function LOGIN_WITH_CODE(request, reply) {
         if (!cachedData_code) {
             return replyError(reply, { message: 'invalid code or code has been expired' })
         }
-        const userdata = await decodeToken(cachedData_code)
+        const userdata = await decodeToken(cachedData_code, this.CONFIG)
         delete userdata.exp
         // deleteCacheValue(loginCode)
         // await setCacheValue(cachedData, (getDevicesCount ? parseInt(getDevicesCount) + 1 : 1), this.CONFIG.REDIS.TOKEN_EXPIRY_IN_SECS)
@@ -120,13 +122,13 @@ async function LOGIN_WITH_CODE(request, reply) {
                 fingerprint === device_info.
                     fingerprint)
             if (exist) {
-                const token = await genereateToke(this, userdata, device_info)
+                const token = await generateToken(this, userdata, device_info, this.CONFIG)
                 return replySuccess(reply, { message: 'login success', token })
             }
             devices.push(device_info)
             await setCacheValue(userdata.username + this.CONFIG.REDIS.DEVICES_KEY, JSON.stringify(devices))
         }
-        const token = await genereateToke(this, userdata, device_info)
+        const token = await generateToken(this, userdata, device_info, authConfig)
         return replySuccess(reply, { message: 'login success', token })
     } catch (err) {
         return replyError(reply, err)
@@ -169,11 +171,11 @@ async function REGISTER_GOOGLE_AUTH(request, reply) {
     try {
         const body = request.body;
         const {device_info} = request.body
-        const { username, email,first_name, profile_photo } = decryptObject(this, body,['username','email','first_name']);
+        const { username, email,first_name, profile_photo } = decryptObject(body,['username','email','first_name'], this.CONFIG);
         let user = await getUserDetails(this, username)
         let token;
         if (user && user !== "") {
-            token = await genereateToke(this, {username, email, first_name, id : user.id}, device_info)
+            token = await generateToken(this, {username, email, first_name, id : user.id}, device_info, this.CONFIG)
            return replySuccess(reply, { message: "User already registered" , token : token})
         }
 
@@ -186,7 +188,7 @@ async function REGISTER_GOOGLE_AUTH(request, reply) {
         };
 
         user = await createUser(this, userDetails);
-        token = await genereateToke(this, {username, email, first_name, id : user.id}, device_info)
+        token = await generateToken(this, {username, email, first_name, id : user.id}, device_info, this.CONFIG)
         return replySuccess(reply, { message: 'success', token : token })
     } catch (err) {
         return replyError(reply, err)
@@ -196,7 +198,7 @@ async function REGISTER_GOOGLE_AUTH(request, reply) {
 async function GET_DEVICES(request, reply) {
     try {
         const token = request.token
-        const userdata = await decodeToken(token)
+        const userdata = await decodeToken(token, this.CONFIG)
         const cachedData = await getCacheValue(userdata.username + this.CONFIG.REDIS.DEVICES_KEY)
         const devices = JSON.parse(cachedData) || []
         return replySuccess(reply, { devices }) 
@@ -209,7 +211,7 @@ async function REMOVE_DEVICE(request, reply) {
     try {
         const token = request.token
         const is_remove_all_devices = request.body.is_remove_all_devices
-        const userdata = await decodeToken(token)
+        const userdata = await decodeToken(token, this.CONFIG)
         const cachedData = await getCacheValue(userdata.username + this.CONFIG.REDIS.DEVICES_KEY)
         const devices = JSON.parse(cachedData)
         if(!is_remove_all_devices && !devices.find(e => e.fingerprint === request.body.device_fingerprint)){

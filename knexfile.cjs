@@ -1,8 +1,15 @@
+require('dotenv').config();
 
 module.exports = {
   development: {
     client: "pg",
-    connection: "postgresql://danvin:pass@34.198.2.14:5432/postgres",
+    connection: {
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'danvin',
+      password: process.env.DB_PASSWORD || 'pass',
+      database: process.env.DB_DATABASE || 'postgres',
+      port: process.env.DB_PORT || 5432,
+    },
     migrations: {
       directory: "./migrations",
       extension: "js",
