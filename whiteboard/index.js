@@ -1,4 +1,4 @@
-const { GET_ROOM_ID, SAVE_ROOM_ID, GET_USER_SUGGESTION, CREATE_ROOM, JOIN_ROOM } = require('./controllers/wb_controller');
+const { GET_ROOM_ID, SAVE_STROKES, GET_USER_SUGGESTION, CREATE_ROOM, JOIN_ROOM } = require('./controllers/wb_controller');
 const { room_id_schema, save_room_schema, getUsersSchema, create_room_schema, join_room_schema } = require('./schemas/wb_schema');
 const {
     drawEventSchema,
@@ -7,7 +7,9 @@ const {
     cursorMoveSchema,
     clearEventSchema,
     undoRedoSchema,
-    lockEventSchema
+    lockEventSchema,
+    whiteboardUpdateSchema,
+    snapshotSyncSchema
 } = require('./schemas/socket_events_schema');
 
 module.exports = async (app) => {
@@ -18,6 +20,14 @@ app.route({
         schema: room_id_schema,
         handler: GET_ROOM_ID,
     });
+
+    app.route({
+        method: 'POST',
+        url: '/save',
+        schema: save_room_schema,
+        handler: SAVE_STROKES,
+    });
+
 
     app.route({
         method: 'GET',
@@ -133,6 +143,30 @@ app.route({
         handler: async (request, reply) => {
             reply.send({
                 message: 'This is a Socket.IO event. Use: socket.emit("lock", {roomId, userId}) or socket.emit("unlock", roomId)',
+                documentation: true
+            });
+        }
+    });
+
+    app.route({
+        method: 'POST',
+        url: '/socket/whiteboard-update',
+        schema: whiteboardUpdateSchema,
+        handler: async (request, reply) => {
+            reply.send({
+                message: 'This is a Socket.IO event. Use: socket.emit("whiteboard-update", {roomId, changes})',
+                documentation: true
+            });
+        }
+    });
+
+    app.route({
+        method: 'POST',
+        url: '/socket/snapshot-sync',
+        schema: snapshotSyncSchema,
+        handler: async (request, reply) => {
+            reply.send({
+                message: 'This is a Socket.IO event. Use: socket.emit("snapshot-sync", {roomId, snapshot})',
                 documentation: true
             });
         }

@@ -33,7 +33,7 @@ async function getCacheValue(key) {
   }
 }
 
-async function setCacheValue(key, value, expiry = 3600) {
+async function setCacheValue(key, value, expiry = 86400) {
   try {
     const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
     await redisClient.set(key, stringValue, "EX", expiry);
@@ -44,7 +44,7 @@ async function setCacheValue(key, value, expiry = 3600) {
   }
 }
 
-async function rpushCacheList(key, value, expiry = 3600) {
+async function rpushCacheList(key, value, expiry = 86400) {
   try {
     const type = await redisClient.type(key);
     if (type === 'string') {

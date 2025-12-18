@@ -19,19 +19,20 @@ const room_id_schema = {
 
 const save_room_schema = {
     tags: ["user"],
-    summary: "User Registration and Login",
-    description: `<h3>This API allows users to register, login, and manage their accounts.</h3>`,
+    summary: "Save Whiteboard Data",
+    description: `<h3>Manually persist whiteboard data to PostgreSQL.</h3>`,
     body: {
         type: "object",
         properties: {
             roomId: {
                 type: "string",
             },
-            paths: {
-                type: "array",
+            data: {
+                type: "object", // Support Fabric.js JSON object
+                additionalProperties: true
             },
         },
-        required: ["roomId", "paths"], 
+        required: ["roomId"], 
         additionalProperties: false,
     },
 };

@@ -42,26 +42,8 @@ async function jobPlugin(fastify, options) {
                 }
             });
 
-            await Promise.all(insertPromises);
+            fastify.log.info(`Backed up messages for relevant rooms.`);
 
-            const { saveRoomStrokes } = require('../whiteboard/services/wb_service');
-            const strokeKeys = await getKeysByPattern(`${CONFIG.REDIS.STROKES_KEY}*`);
-            const strokePromises = strokeKeys.map(async (redisKey) => {
-                try {
-                     const cachedStrokes = await getCacheValue(redisKey);
-                     if (!cachedStrokes) return;
-                     
-                     const room_id = redisKey.replace(CONFIG.REDIS.STROKES_KEY, '');
-                     
-                     await saveRoomStrokes(fastify, room_id, cachedStrokes);
-                     
-                     fastify.log.info(`Backed up strokes for room: ${room_id}`);
-                     await deleteCacheValue(redisKey);
-                } catch (error) {
-                     fastify.log.error(error, `Failed to backup strokes for room ${redisKey}`);
-                }
-            });
-            await Promise.all(strokePromises);
         }
     );
 }

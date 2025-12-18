@@ -5,24 +5,60 @@ const { updateRoomUsers } = require("./services/wb_service");
 let whiteboardData = {};
 let cursors = {};
 let roomLocks = {};
+let roomUsers = {}; 
 
 module.exports = async function setupSocket(io, log) {
     io.on("connection", async (socket) => {
         let customUserId = socket.handshake.query.username || `guest_${Math.floor(Math.random() * 10000)}`;
+        socket.username = customUserId;
+        socket.currentRoom = null;
+
         log.info(`User connected: ${customUserId}`);
 
         io.to(socket.id).emit("custom-id", customUserId);
 
         socket.on("join-room", (roomId) => {
             socket.join(roomId);
+            socket.currentRoom = roomId;
             log.info(`User ${customUserId} joined room: ${roomId}`);
 
-            if (!whiteboardData[roomId]) whiteboardData[roomId] = [];
+            if (!roomUsers[roomId]) roomUsers[roomId] = [];
+            if (!roomUsers[roomId].includes(customUserId)) {
+                roomUsers[roomId].push(customUserId);
+            }
+
+            io.to(roomId).emit("active-users", roomUsers[roomId]);
             io.to(roomId).emit("lock", roomLocks[roomId]);
         });
 
+        socket.on("disconnect", () => {
+            if (socket.currentRoom && roomUsers[socket.currentRoom]) {
+                roomUsers[socket.currentRoom] = roomUsers[socket.currentRoom].filter(u => u !== socket.username);
+                io.to(socket.currentRoom).emit("active-users", roomUsers[socket.currentRoom]);
+                
+                // Cleanup empty rooms
+                if (roomUsers[socket.currentRoom].length === 0) {
+                    delete roomUsers[socket.currentRoom];
+                }
+            }
+            log.info(`User disconnected: ${socket.username}`);
+        });
+
+        socket.on("whiteboard-update", async ({ roomId, changes }) => {
+            // Broadcast the update to others
+            socket.to(roomId).emit("whiteboard-update", { changes });
+            
+
+        });
+
+        socket.on("snapshot-sync", async ({ roomId, snapshot }) => {
+
+            await setCacheValue(`${CONFIG.REDIS.STROKES_KEY}${roomId}`, JSON.stringify(snapshot));
+            log.info(`Received and cached full snapshot for room: ${roomId}`);
+        });
+
+
         socket.on("draw", async ({ roomId, userId, paths }) => {
-            whiteboardData[roomId] = paths;
 
             const strokes = await getCacheValue(`${CONFIG.REDIS.STROKES_KEY}${roomId}`);
             const newStrokes = strokes ? [...JSON.parse(strokes), ...paths] : [...paths];
@@ -32,8 +68,7 @@ module.exports = async function setupSocket(io, log) {
         });
 
         socket.on("clear", async(roomId) => {
-            whiteboardData[roomId] = [];
-            await setCacheValue(`${CONFIG.REDIS.MESSAGES_KEY}${roomId}`, JSON.stringify([]));
+            await setCacheValue(`${CONFIG.REDIS.STROKES_KEY}${roomId}`, JSON.stringify({}));
             socket.to(roomId).emit("clear");
         });
 

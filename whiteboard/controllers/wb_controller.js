@@ -8,27 +8,56 @@ const { getUserSuggestions, create_room, getRoomChatData, join_room, getRoom, ge
 
 async function GET_ROOM_ID(request, reply) {
     try {
-        const room_id = request.params.roomId
+        const room_id = request.params.roomId;
+        // Priority 1: Redis (Live data)
+        const strokes = await getCacheValue(`${this.CONFIG.REDIS.STROKES_KEY}${room_id}`);
         const messages = await getCacheList(`${this.CONFIG.REDIS.MESSAGES_KEY}${room_id}`);
-        const strokes = await getCacheValue(`${this.CONFIG.REDIS.STROKES_KEY}${room_id}`)
-        const dbStrokesJson = await getRoomStrokes(this, room_id);
         
-        const msgsFromDb = await getRoomChatData(this, room_id)
+        let whiteboardData = strokes ? JSON.parse(strokes) : null;
         
-        let redisStrokes = strokes?.length ? JSON.parse(strokes) : [];
-        let dbStrokes = dbStrokesJson ?dbStrokesJson : [];
-        
-        if (!Array.isArray(redisStrokes)) redisStrokes = [];
-        if (!Array.isArray(dbStrokes)) dbStrokes = [];
-        
-        const mergedStrokes = [...dbStrokes, ...redisStrokes];
+        // Priority 2: PostgreSQL (Persistent fallback)
+        if (!whiteboardData) {
+            const dbStrokesJson = await getRoomStrokes(this, room_id);
+            whiteboardData = dbStrokesJson || null;
+        }
 
+        const msgsFromDb = await getRoomChatData(this, room_id);
+        
         return replySuccess(reply, {
             messages: msgsFromDb?.length ? [...msgsFromDb, ...(messages || [])] : (messages || []),
-            drowData: mergedStrokes
+            whiteboardData: whiteboardData,
+            drowData: Array.isArray(whiteboardData) ? whiteboardData : []
           });
     } catch (err) {
-        return replyError(reply, err)
+        return replyError(reply, err);
+    }
+}
+
+async function SAVE_STROKES(request, reply) {
+    try {
+        const { roomId, data } = request.body;
+        const { saveRoomStrokes } = require('../services/wb_service');
+        const { setCacheValue } = require('../../core/redis_config/redis_client');
+        const CONFIG = require('../../core/config');
+
+        // If data is provided, update Redis first
+        if (data) {
+            await setCacheValue(`${CONFIG.REDIS.STROKES_KEY}${roomId}`, JSON.stringify(data));
+        }
+
+        // Get the latest data from Redis if not provided or to ensure we have it
+        const finalData = data || await getCacheValue(`${CONFIG.REDIS.STROKES_KEY}${roomId}`);
+        
+        if (!finalData) {
+            return replyError(reply, { message: "No data found to save" });
+        }
+
+        // Save to PostgreSQL
+        await saveRoomStrokes(this, roomId, finalData);
+
+        return replySuccess(reply, { message: "Whiteboard saved successfully" });
+    } catch (err) {
+        return replyError(reply, err);
     }
 }
 
@@ -73,4 +102,4 @@ async function JOIN_ROOM(request, reply) {
 }
 
 
-module.exports = {GET_ROOM_ID,GET_USER_SUGGESTION, CREATE_ROOM, JOIN_ROOM }
+module.exports = { GET_ROOM_ID, SAVE_STROKES, GET_USER_SUGGESTION, CREATE_ROOM, JOIN_ROOM }

@@ -155,6 +155,34 @@ const lockEventSchema = {
     }
 };
 
+const whiteboardUpdateSchema = {
+    tags: ['Socket.IO Events'],
+    summary: 'Whiteboard Update Event (tldraw)',
+    description: 'Socket event for tldraw store incremental updates. Emit with: `socket.emit("whiteboard-update", {roomId, changes})`',
+    body: {
+        type: 'object',
+        properties: {
+            roomId: { type: 'string' },
+            changes: { type: 'object', description: 'tldraw store diff object' }
+        },
+        required: ['roomId', 'changes']
+    }
+};
+
+const snapshotSyncSchema = {
+    tags: ['Socket.IO Events'],
+    summary: 'Snapshot Sync Event (tldraw)',
+    description: 'Socket event for syncing full board snapshot. Emit with: `socket.emit("snapshot-sync", {roomId, snapshot})`',
+    body: {
+        type: 'object',
+        properties: {
+            roomId: { type: 'string' },
+            snapshot: { type: 'object', description: 'Full tldraw store snapshot' }
+        },
+        required: ['roomId', 'snapshot']
+    }
+};
+
 module.exports = {
     drawEventSchema,
     joinRoomSchema,
@@ -162,5 +190,7 @@ module.exports = {
     cursorMoveSchema,
     clearEventSchema,
     undoRedoSchema,
-    lockEventSchema
+    lockEventSchema,
+    whiteboardUpdateSchema,
+    snapshotSyncSchema
 };
