@@ -15,6 +15,12 @@ pipeline {
       }
     }
 
+    stage('Pull submodules') {
+      steps {
+        sh 'npm run pull:submodules'
+      }
+    }
+
     stage('Create .env from Jenkins credentials') {
       steps {
         withCredentials([string(credentialsId: 'my-node-env', variable: 'DOTENV_CONTENT')]) {
